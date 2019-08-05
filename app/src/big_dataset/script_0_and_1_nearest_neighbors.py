@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
 from sklearn import datasets
-from sklearn import svm
+from sklearn.datasets import fetch_openml
+from sklearn import neighbors, metrics
 import cv2
 
 
@@ -16,6 +17,14 @@ def change_shape_of_dataset_element(test):
     # print('test.shape=', test.shape)
     return test
 
+def sort_by_target(mnist):
+    reorder_train = np.array(sorted([(target, i) for i, target in enumerate(mnist.target[:60000])]))[:, 1]
+    reorder_test = np.array(sorted([(target, i) for i, target in enumerate(mnist.target[60000:])]))[:, 1]
+    mnist.data[:60000] = mnist.data[reorder_train]
+    mnist.target[:60000] = mnist.target[reorder_train]
+    mnist.data[60000:] = mnist.data[reorder_test + 60000]
+    mnist.target[60000:] = mnist.target[reorder_test + 60000]
+
 
 def prepare_images_and_labels(digits):
     newdataset_data = []
@@ -28,7 +37,7 @@ def prepare_images_and_labels(digits):
         if digits.target[i] == 0 or digits.target[i] == 1:
             newdataset_data.append(digits.data[i])
             newdataset_labels.append(digits.target[i])
-            newdataset_images.append(digits.images[i])
+            #newdataset_images.append(digits.images[i])
 
     # print("newdataset_labels:",newdataset_labels)
     # print("len(newdataset_labels):",len(newdataset_labels))
@@ -37,6 +46,12 @@ def prepare_images_and_labels(digits):
 
 # get dataset (0-9 digits) from sklearn library
 digits = datasets.load_digits()
+# Load data from https://www.openml.org/d/554
+mnist = fetch_openml('mnist_784', version=1, cache=True)
+mnist.target = mnist.target.astype(np.int8)  # fetch_openml() returns targets as strings
+sort_by_target(mnist)  # fetch_openml() returns an unsorted dataset
+print(mnist)
+print(len(mnist))
 
 # number of elements in dataset
 print(len(digits.data))
@@ -49,20 +64,29 @@ print(digits.data)
 # (в качестве лейблов - цифры от 0 до 9)
 print(digits.target)
 
-dataset_data, dataset_labels, newdataset_images = prepare_images_and_labels(digits)
+print('****************************************')
+print(mnist.data.shape)
+print(mnist.target.shape)
+print(np.unique(mnist.target))
+print('****************************************')
+
+dataset_data, dataset_labels, newdataset_images = prepare_images_and_labels(mnist)
+
 
 # First, we specify the classifier
-clf = svm.SVC(gamma=0.001, C=100)
+clf = neighbors.KNeighborsClassifier(n_neighbors=3)
 
 # pair data-label
 # training_set = всё, кроме последних 350 данных,
 # потом мы можем использовать последние
 # 350 данных для тестирования.
-train_data, train_labels = dataset_data[:-350], dataset_labels[:-350]
+train_data, train_labels = dataset_data[:-4000], dataset_labels[:-4000]
 
-print('initial_dataset_length=', len(digits.data))
+print('initial_dataset_length=', len(mnist.data))
 print('two_digit_dataset_length=', len(dataset_data))
 print('train_dataset_length=', len(train_data))
+
+print(np.unique(train_labels))
 
 # тренировка алгоритма.
 clf.fit(train_data, train_labels)
@@ -72,8 +96,8 @@ accuracy = 0
 number_of_correct_elements = 0
 number_of_elements = 0
 
-for i in range(1, 351):
-    print('~~~~~~~~~~~~~Element:', -i, '~~~~~~~~~~~~~')
+for i in range(1, 4001):
+    #print('~~~~~~~~~~~~~Element:', -i, '~~~~~~~~~~~~~')
     number_of_elements += 1
     test = dataset_data[-i]
 
@@ -84,8 +108,8 @@ for i in range(1, 351):
     prediction_of_the_machine = clf.predict(test)
     real_label_of_element = dataset_labels[-i]
 
-    print('Prediction:', prediction_of_the_machine)
-    print('Real label:', real_label_of_element)
+    #print('Prediction:', prediction_of_the_machine)
+    #print('Real label:', real_label_of_element)
 
     # Now we check the accuracy of classification
     # For that, compare the result with test_labels and check which are wrong
@@ -93,10 +117,23 @@ for i in range(1, 351):
         number_of_correct_elements += 1
 
     accuracy = number_of_correct_elements * 100.0 / number_of_elements
-    print("accuracy=", accuracy)
-    print("number_of_correct_elements=", number_of_correct_elements)
-    print("number_of_elements=", number_of_elements)
+    # print("accuracy=", accuracy)
+    # print("number_of_correct_elements=", number_of_correct_elements)
+    # print("number_of_elements=", number_of_elements)
 
     # визуализируем i-й с конца элемент, и сверяем с предсказанием.
     # plt.imshow(newdataset_images[-i], cmap=plt.cm.gray_r, interpolation="nearest")
     # plt.show()
+
+print("accuracy=", accuracy)
+print("number_of_correct_elements=", number_of_correct_elements)
+print("number_of_elements=", number_of_elements)
+
+
+
+'''initial_dataset_length= 70000
+two_digit_dataset_length= 14780
+train_dataset_length= 10780
+accuracy= 24.5
+number_of_correct_elements= 980
+number_of_elements= 4000'''
